@@ -1,0 +1,63 @@
+---
+title: "Ages of New York Shooting Victims and Perpetrators"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+This data was collected by the NYPD, and includes information about shooting incidents from 2006 to the end of 2020. It includes various types of data, such as date, time, location, age, sex, and race. It can be found here: https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic
+
+I am looking at how age is a factor in shooting incidents. Which age groups are most at risk? How does age differ between perpetrators and victims? First, I will import and tidy the data to look at only the distribution of age groups of victims:
+
+```{r import, message=FALSE}
+library(tidyverse)
+url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+shooting_data <- read_csv(url)
+vic_table <- table(shooting_data$VIC_AGE_GROUP, exclude = "UNKNOWN")
+vic_table
+```
+
+ and perpetrators:
+ 
+```{r table1, message=FALSE}
+ perp_table <- table(shooting_data$PERP_AGE_GROUP, exclude = c("1020", "224", "940", "UNKNOWN", NA))
+ perp_table
+```
+
+In many cases, the age of the perpetrator is unknown, so I have removed the unknowns, meaning there are more data points for victims than perpetrators. Here are the data by proportion for better comparison:
+
+```{r table2, message=FALSE}
+prop_vic_table <- prop.table(vic_table)
+prop_perp_table <- prop.table(perp_table)
+prop_vic_table
+prop_perp_table
+```
+
+Here are visualizations of the same data:
+
+```{r visual1, message=FALSE}
+plot(vic_table, main="Ages of shooting victims", xlab = "Age group", ylab = "Number of victims")
+plot(perp_table, main="Ages of shooting perpetrators", xlab = "Age group", ylab = "Number of perpetrators")
+```
+
+Here I fit a model to predict the distribution of the ages of shooting perpetrators based on the distribution of the ages of shooting victims:
+
+```{r model, message=FALSE}
+library(modelr)
+prop_data <- read_csv("prop_data.csv")
+mod <- lm(PERP_PROP ~ VIC_PROP, data=prop_data)
+grid <- prop_data %>%
+  data_grid(VIC_PROP) %>%
+  add_predictions(mod, 'PERP_PROP')
+ggplot(data = prop_data, aes(x = VIC_PROP, y = PERP_PROP)) +
+  geom_point(alpha=1) +
+  geom_line(data=grid)
+```
+
+ We can't know the ages of perpetrators that were never apprehended. However, there is no reason to think that we cannot use the known ages to predict the unknowns.
+ 
+## Conclusion
+
+The most common age group for a shooting victim is the 25-44 range, whereas the most common age group for a shooting perpetrator is the 18-24 range. The perpetrator is also more likely than the victim to be a minor, whereas the victim is more likely to be older than 45. This data would suggest that younger people are more likely to be shooting perpetrators than older people.
+
+When I think of a shooting perpetrator, I tend to think of a young person, and this is generally how shootings are depicted in various media. This could be a potential source of bias. That is why it is important to be careful and consider the difficulties in interpreting this data. Furthermore, the age ranges also vary in size, making comparison difficult. For instance, 18-24 covers 6 years whereas 25-44 covers 19 years. We also don't see data on the relative numbers of people in each of these age ranges in the general population.
